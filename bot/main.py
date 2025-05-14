@@ -6,6 +6,7 @@ from bot.handlers import user, prompt, generate  # <— добавили prompt
 from aiogram.fsm.storage.memory import MemoryStorage
 from bot.handlers import user, prompt, generate, channels
 from bot.keyboards import generate as kb_generate
+from database.db import engine, Base
 
 bot = Bot(token=BOT_TOKEN)
 storage = MemoryStorage()
@@ -17,9 +18,18 @@ dp.include_router(prompt.router)
 dp.include_router(generate.router)
 dp.include_router(channels.router)
 
+
+async def on_startup():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 async def main():
     print("Бот запускается...")
     await dp.start_polling(bot)
+    await on_startup()
+
+
+
 
 if __name__ == "__main__":
     asyncio.run(main())
+
