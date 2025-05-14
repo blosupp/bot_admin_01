@@ -7,9 +7,15 @@ from bot.config import TEST_CHANNEL_ID
 from bot.handlers.channels import user_channels
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import  StatesGroup, State
+from datetime import datetime, timedelta
+import asyncio
+
+
+
 
 class PostState(StatesGroup):
     waiting_for_edit = State()
+    waiting_for_datetime = State()
 
 router = Router()
 
@@ -92,6 +98,15 @@ async def handle_edit_request(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(PostState.waiting_for_edit)
 
 
+@router.callback_query(F.data == "schedule")
+async def schedule_post(callback: types.CallbackQuery, state: FSMContext):
+    await callback.message.edit_reply_markup(reply_markup=None)
+    await callback.message.answer(
+        "📅 Введи дату и время в формате:\n<code>дд.мм.гггг чч:мм</code>\n\nНапример:\n<code>15.05.2025 18:30</code>",
+        parse_mode="HTML")
+    await state.set_state(PostState.waiting_for_datetime)
+
+
 @router.message(PostState.waiting_for_edit)
 async def receive_edited_text(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
@@ -107,4 +122,42 @@ async def receive_edited_text(message: types.Message, state: FSMContext):
     else:
         await message.answer("❗ У тебя нет добавленных каналов.")
 
+    await state.clear()
+
+
+
+@router.message(PostState.waiting_for_datetime)
+async def handle_datetime(message: types.Message, state: FSMContext):
+    user_id = message.from_user.id
+    text = user_generations.get(user_id)
+
+    try:
+        dt = datetime.strptime(message.text.strip(), "%d.%m.%Y %H:%M")
+        delay = (dt - datetime.now()).total_seconds()
+        if delay < 10:
+            raise ValueError("Время слишком близко")
+
+    except Exception:
+        await message.answer("❌ Неверный формат. Попробуй ещё раз:\n<code>дд.мм.гггг чч:мм</code>", parse_mode="HTML")
+        return
+
+    # Выбираем канал
+    from bot.handlers.channels import user_channels
+    channels = user_channels.get(user_id, [])
+    if not channels:
+        await message.answer("❗ У тебя нет сохранённых каналов.")
+        return
+
+    channel_id, _ = channels[0]  # пока первый канал
+
+    await message.answer(f"⏱ Пост запланирован на {dt.strftime('%d.%m.%Y %H:%M')}. Я отправлю его сам!")
+
+    async def delayed_send():
+        await asyncio.sleep(delay)
+        try:
+            await message.bot.send_message(channel_id, text)
+        except Exception as e:
+            print(f"❌ Ошибка при отправке отложенного поста: {e}")
+
+    asyncio.create_task(delayed_send())
     await state.clear()
