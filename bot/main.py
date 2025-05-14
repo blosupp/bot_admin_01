@@ -7,6 +7,10 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from bot.handlers import user, prompt, generate, channels
 from bot.keyboards import generate as kb_generate
 from database.db import engine, Base
+from bot.handlers import prompts
+
+
+
 
 bot = Bot(token=BOT_TOKEN)
 storage = MemoryStorage()
@@ -17,15 +21,18 @@ dp.include_router(user.router)
 dp.include_router(prompt.router)
 dp.include_router(generate.router)
 dp.include_router(channels.router)
+dp.include_router(prompts.router)
 
 
 async def on_startup():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
 async def main():
     print("Бот запускается...")
-    await dp.start_polling(bot)
     await on_startup()
+    await dp.start_polling(bot)
+
 
 
 
