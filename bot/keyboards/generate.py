@@ -8,10 +8,12 @@ def generate_action_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="✅ Подтвердить", callback_data="confirm")
         ],
         [
+            InlineKeyboardButton(text="📅 Отложить", callback_data="schedule"),
             InlineKeyboardButton(text="❌ Отмена", callback_data="cancel")
         ]
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
 
 def generate_publish_keyboard(channels: list) -> InlineKeyboardMarkup:
     buttons = []
