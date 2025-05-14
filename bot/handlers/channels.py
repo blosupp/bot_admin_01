@@ -1,5 +1,7 @@
 from aiogram import Router, types
 from aiogram.filters import Command
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
 
 router = Router()
 
@@ -23,12 +25,36 @@ async def add_channel(message: types.Message):
 async def show_channels(message: types.Message):
     user_id = message.from_user.id
     channels = user_channels.get(user_id, [])
+
     if not channels:
         await message.answer("📭 У тебя пока нет добавленных каналов.")
         return
 
-    text = "📋 Твои каналы:\n\n"
-    for idx, (chan_id, title) in enumerate(channels, 1):
-        text += f"{idx}. {title} (`{chan_id}`)\n"
+    keyboard = []
+    for chan_id, title in channels:
+        keyboard.append([
+            InlineKeyboardButton(
+                text=f"🗑 Удалить «{title}»",
+                callback_data=f"delete_channel:{chan_id}"
+            )
+        ])
 
-    await message.answer(text, parse_mode="Markdown")
+    await message.answer(
+        "📋 Твои каналы. Нажми, чтобы удалить:",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard)
+    )
+
+@router.callback_query(lambda c: c.data and c.data.startswith("delete_channel:"))
+async def delete_channel_callback(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    chan_id = int(callback.data.split(":")[1])
+
+    channels = user_channels.get(user_id, [])
+    new_channels = [(id, title) for id, title in channels if id != chan_id]
+
+    if len(new_channels) < len(channels):
+        user_channels[user_id] = new_channels
+        await callback.answer("✅ Канал удалён.")
+        await callback.message.delete()
+    else:
+        await callback.answer("❌ Канал не найден.")
