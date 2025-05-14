@@ -22,6 +22,7 @@ venv/
 *.egg-info/
 *.egg
 *.log
+db.sqlite3
 
 # OS
 .DS_Store
