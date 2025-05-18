@@ -4,10 +4,13 @@ from bot.config import BOT_TOKEN
 from bot.handlers import user  # импортируем user router
 from bot.handlers import user, prompt, generate  # <— добавили prompt
 from aiogram.fsm.storage.memory import MemoryStorage
-from bot.handlers import user, prompt, generate, channels
+from bot.handlers import user, prompt, generate, channels, post
 from bot.keyboards import generate as kb_generate
 from database.db import engine, Base
 from bot.handlers import prompts
+
+from bot.handlers import chat
+
 
 
 
@@ -22,6 +25,9 @@ dp.include_router(prompt.router)
 dp.include_router(generate.router)
 dp.include_router(channels.router)
 dp.include_router(prompts.router)
+dp.include_router(chat.router)
+dp.include_router(post.router)
+
 
 
 async def on_startup():
