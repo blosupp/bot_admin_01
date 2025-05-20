@@ -6,6 +6,10 @@ from database.db import AsyncSessionLocal
 from sqlalchemy import delete, select
 from database.models import Message
 
+
+from database.crud import get_last_messages, add_message, get_user_memory_flag
+from database.db import get_async_session
+
 client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
 
@@ -45,13 +49,19 @@ async def generate_post_text(user_id: int) -> str:
     return await generate_text(prompt.text)
 
 
-from database.crud import get_last_messages, add_message
-from database.db import get_async_session
 
 async def generate_text_with_memory(user_id: int, new_user_text: str) -> str:
     async with get_async_session() as session:
         print(f"⚙️ [user_id={user_id}] → {new_user_text}")
 
+        # 🔄 Проверяем, включена ли память
+        use_memory = await get_user_memory_flag(user_id, session)
+
+        # 🔸 Если память отключена — просто генерируем ответ без истории
+        if not use_memory:
+            return await generate_text(new_user_text)
+
+        # 🧠 Если память включена — собираем историю
         history = await get_last_messages(session, user_id)
         print("📚 История из БД:", [(m.role, m.content[:30]) for m in history])
 
