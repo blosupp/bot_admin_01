@@ -1,6 +1,6 @@
 from sqlalchemy import select, update, delete
 from database.db import AsyncSessionLocal
-from database.models import User, Prompt, Channel
+from database.models import User, Prompt, Channel, TempPost
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.models import Message
 
@@ -120,3 +120,78 @@ async def get_last_messages(session: AsyncSession, user_id: int, limit: int = 10
         .limit(limit)
     )
     return list(reversed(result.scalars().all()))
+
+# 🧠 очистка истории
+async def delete_user_messages(user_id: int, session: AsyncSession):
+    """
+    Удаляет все сообщения пользователя из таблицы messages
+    """
+    stmt = delete(Message).where(Message.user_id == user_id)
+    await session.execute(stmt)
+    await session.commit()
+
+
+
+async def toggle_user_memory(user_id: int, session: AsyncSession) -> bool:
+    """
+    Переключает флаг use_memory. Возвращает новое значение.
+    """
+    query = select(User).where(User.id == user_id)
+    result = await session.execute(query)
+    user = result.scalar_one_or_none()
+
+    if not user:
+        user = User(id=user_id)
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+
+    user.use_memory = not user.use_memory
+    await session.commit()
+    return user.use_memory
+
+async def get_user_memory_flag(user_id: int, session: AsyncSession) -> bool:
+    """
+    Возвращает, включена ли память у пользователя (по умолчанию True)
+    """
+    query = select(User).where(User.id == user_id)
+    result = await session.execute(query)
+    user = result.scalar_one_or_none()
+
+    return user.use_memory if user else True
+
+
+async def save_temp_post(session, user_id: int, file_id: str, caption: str) -> int:
+    post = TempPost(user_id=user_id, file_id=file_id, caption=caption[:4000])
+    session.add(post)
+    await session.commit()
+    await session.refresh(post)
+    return post.id
+
+async def get_temp_post(session, post_id: int) -> TempPost | None:
+    return await session.get(TempPost, post_id)
+
+
+async def save_temp_post(session, user_id: int, file_id: str, caption: str, original: str) -> int:
+    post = TempPost(user_id=user_id, file_id=file_id, caption=caption[:4000], original=original[:4000])
+    session.add(post)
+    await session.commit()
+    await session.refresh(post)
+    return post.id
+
+async def get_temp_post(session, post_id: int):
+    return await session.get(TempPost, post_id)
+
+async def update_temp_post_caption(session, post_id: int, new_caption: str):
+    post = await session.get(TempPost, post_id)
+    if post:
+        post.caption = new_caption
+        await session.commit()
+
+
+# Удаляет временный пост из БД
+async def delete_temp_post(session, post_id: int):
+    post = await session.get(TempPost, post_id)
+    if post:
+        await session.delete(post)
+        await session.commit()
