@@ -13,8 +13,6 @@ from bot.handlers import chat
 
 
 
-
-
 bot = Bot(token=BOT_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
