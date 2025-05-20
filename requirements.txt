@@ -1,0 +1,8 @@
+aiogram==3.0.0b6
+openai>=1.0.0
+aiohttp
+SQLAlchemy>=2.0.0
+python-dotenv
+asyncpg  # если планируешь переход на PostgreSQL
+uvloop ; sys_platform != 'win32'
+pydantic<2.0
