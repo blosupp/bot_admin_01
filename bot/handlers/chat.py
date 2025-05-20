@@ -1,9 +1,15 @@
 from aiogram import Router, types, F
 from bot.services.openai_service import generate_text
 from bot.services.openai_service import generate_text_with_memory
+from aiogram.filters import Command
+from aiogram.types import Message
 
-from database.db import get_async_session
+
 from database.crud import add_message
+from database.crud import delete_user_messages
+from database.db import get_async_session
+from database.crud import toggle_user_memory
+
 
 router = Router()
 
@@ -15,7 +21,38 @@ async def gpt_dialogue(message: types.Message):
     reply = await generate_text_with_memory(user_id, user_input)
     await message.answer(reply)
 
-    # 🔧 временный тест
+    ## 🔧 временный тест
+    #async with get_async_session() as session:
+    #    await add_message(session, user_id, "user", user_input)
+    #    await add_message(session, user_id, "assistant", reply)
+
+
+@router.message(Command("forget"))
+async def forget_memory(message: Message):
+    """
+    Команда /forget:
+    ⏳ Удаляет всю историю сообщений пользователя из памяти GPT
+    """
+    user_id = message.from_user.id
+
+    async with get_async_session() as session:  # 🔄 открываем сессию с БД
+        await delete_user_messages(user_id, session)  # 🧹 удаляем сообщения
+
+    await message.answer("🧠 История очищена. Начнем с чистого листа!")
+
+
+@router.message(Command("chatmode"))
+async def toggle_chatmode(message: Message):
+    """
+    Команда /chatmode:
+    🔁 Включает или выключает диалоговую память
+    """
+    user_id = message.from_user.id
+
     async with get_async_session() as session:
-        await add_message(session, user_id, "user", user_input)
-        await add_message(session, user_id, "assistant", reply)
+        new_mode = await toggle_user_memory(user_id, session)
+
+    if new_mode:
+        await message.answer("🧠 Память включена. GPT будет помнить контекст.")
+    else:
+        await message.answer("💤 Память отключена. GPT будет отвечать без истории.")
