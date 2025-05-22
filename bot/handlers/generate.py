@@ -1,4 +1,4 @@
-# ✅ handlers/generate.py — обработка генерации и публикации фото-постов
+# ✅ handlers/generate.py — обработка генерации, редактирования и публикации фото-постов с удалением
 
 from aiogram import Router, types, F, Bot
 from aiogram.fsm.context import FSMContext
@@ -15,7 +15,8 @@ from database.crud import (
     get_temp_post,
     get_user_channels,
     save_temp_post,
-    update_temp_post_caption, delete_temp_post
+    update_temp_post_caption,
+    delete_temp_post  # ✅ новый импорт
 )
 from database.db import get_async_session
 
@@ -69,10 +70,11 @@ async def handle_photo_with_caption(message: Message):
         temp_id = await save_temp_post(session, message.from_user.id, file_id, generated_text, caption)
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✅ Опубликовать", callback_data=f"publish_temp:{temp_id}")],
-        [InlineKeyboardButton(text="✏ Редактировать", callback_data=f"edit_temp:{temp_id}")],
-        [InlineKeyboardButton(text="♻ Сгенерировать заново", callback_data=f"regen_temp:{temp_id}")],
-        [InlineKeyboardButton(text="🗑 Удалить", callback_data=f"delete_temp:{temp_id}")]
+        [InlineKeyboardButton(text="\u2705 Опубликовать", callback_data=f"publish_temp:{temp_id}")],
+        [InlineKeyboardButton(text="\u270f Редактировать", callback_data=f"edit_temp:{temp_id}")],
+        [InlineKeyboardButton(text="\u267b Сгенерировать заново", callback_data=f"regen_temp:{temp_id}")],
+        [InlineKeyboardButton(text="\u274c Отменить", callback_data=f"cancel_temp:{temp_id}")],
+        [InlineKeyboardButton(text="\U0001f5d1 Удалить", callback_data=f"delete_temp:{temp_id}")]
     ])
 
     await message.answer_photo(photo=file_id, caption=safe_caption, reply_markup=kb)
@@ -117,6 +119,18 @@ async def regenerate_caption(callback: CallbackQuery):
     await callback.message.answer("\u267b Пост сгенерирован заново. Можешь опубликовать или изменить.")
 
 
+# 📂 Удаление поста (из чата и из базы)
+@router.callback_query(F.data.startswith("delete_temp:"))
+async def delete_temp(callback: CallbackQuery):
+    temp_id = int(callback.data.split(":")[1])
+    async with get_async_session() as session:
+        await delete_temp_post(session, temp_id)
+    try:
+        await callback.message.delete()
+    except Exception:
+        await callback.message.answer("✅ Пост удалён, но не удалось удалить сообщение.")
+
+
 # ✅ Опубликовать — обработка в зависимости от количества каналов
 @router.callback_query(F.data.startswith("publish_temp:"))
 async def choose_channel_or_publish(callback: CallbackQuery, state: FSMContext, bot: Bot):
@@ -132,7 +146,7 @@ async def choose_channel_or_publish(callback: CallbackQuery, state: FSMContext, 
         await callback.message.answer("\u274c Пост не найден или нет добавленных каналов.")
         return
 
-    await state.update_data(file_id=post.file_id, post_text=post.caption)
+    await state.update_data(file_id=post.file_id, post_text=post.caption, temp_post_id=temp_id)
 
     if len(channels) == 1:
         await state.update_data(channel_id=channels[0].channel_id)
@@ -169,7 +183,7 @@ async def photo_choose_channel(callback: CallbackQuery, state: FSMContext):
     await state.set_state(PostState.confirming_post)
 
 
-# 📢 Публикация в выбранный канал (финальный шаг)
+# 📢 Публикация в выбранный канал (финальный шаг) с автоудалением TempPost
 @router.callback_query(PostState.confirming_post, F.data == "confirm_photo_publish")
 async def publish_post_to_channel(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await callback.answer()
@@ -178,29 +192,17 @@ async def publish_post_to_channel(callback: CallbackQuery, state: FSMContext, bo
     channel_id = data.get("channel_id")
     post_text = data.get("post_text")
     file_id = data.get("file_id")
+    temp_post_id = data.get("temp_post_id")
 
     try:
-        # ✅ Публикуем в канал
         await bot.send_photo(chat_id=channel_id, photo=file_id, caption=post_text[:1024])
+        await callback.message.answer("\u2705 Фото-пост опубликован!")
 
-        # ✅ Сообщаем пользователю — но НЕ через edit_text!
-        await callback.message.answer("✅ Фото-пост опубликован!")
+        # ❌ Автоудаление записи из TempPost
+        async with get_async_session() as session:
+            await delete_temp_post(session, temp_post_id)
 
     except Exception as e:
-        # ❗ Ошибку тоже отправляем как обычное сообщение
-        await callback.message.answer(f"❌ Ошибка:\n<code>{e}</code>", parse_mode="HTML")
+        await callback.message.answer(f"\u274c Ошибка:\n<code>{e}</code>", parse_mode="HTML")
 
     await state.clear()
-
-
-@router.callback_query(F.data.startswith("delete_temp:"))
-async def delete_temp(callback: CallbackQuery):
-    temp_id = int(callback.data.split(":")[1])
-
-    async with get_async_session() as session:
-        await delete_temp_post(session, temp_id)
-
-    try:
-        await callback.message.delete()
-    except Exception:
-        await callback.message.answer("✅ Пост удалён (но не удалось удалить сообщение).")
