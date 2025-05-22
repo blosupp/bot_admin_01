@@ -27,3 +27,5 @@ db.sqlite3
 # OS
 .DS_Store
 Thumbs.db
+.idea/
+.venv/
