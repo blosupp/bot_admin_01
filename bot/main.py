@@ -10,6 +10,7 @@ from database.db import engine, Base
 from bot.handlers import prompts
 
 from bot.handlers import chat
+import logging
 
 
 
@@ -34,13 +35,17 @@ async def on_startup():
 
 async def main():
     print("Бот запускается...")
-    await on_startup()
-    await dp.start_polling(bot)
-
+    try:
+        await dp.start_polling(bot)
+    except (KeyboardInterrupt, asyncio.CancelledError):
+        logging.info("🛑 Бот остановлен вручную или отменён.")
 
 
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("⛔ Бот завершён пользователем.")
 
