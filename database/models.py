@@ -1,6 +1,7 @@
-from sqlalchemy import Column, Integer, String, BigInteger, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, BigInteger, ForeignKey, Boolean, DateTime, Text
 from sqlalchemy.orm import relationship
 from database.db import Base
+from datetime import datetime
 
 class User(Base):
     __tablename__ = "users"
@@ -51,3 +52,21 @@ class TempPost(Base):
     file_id = Column(String)
     caption = Column(String)  # итоговый текст
     original = Column(String)  # исходная подпись от пользователя
+
+
+class ScheduledPost(Base):
+    """
+    🗂 Модель для хранения отложенных публикаций
+    """
+    __tablename__ = "scheduled_posts"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(BigInteger, index=True)         # кто создал пост
+    channel_id = Column(BigInteger)                  # куда публиковать
+    caption = Column(String, nullable=True)          # текст поста
+    file_id = Column(String, nullable=True)          # если есть фото
+    scheduled_time = Column(DateTime)                # дата и время публикации
+    sent = Column(Boolean, default=False)            # опубликован ли
+    created_at = Column(DateTime, default=datetime.utcnow)  # когда создан
+
+
