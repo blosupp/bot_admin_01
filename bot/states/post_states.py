@@ -8,3 +8,11 @@ class EditPhotoPost(StatesGroup):
 class PostState(StatesGroup):
     choosing_channel = State()
     confirming_post = State()
+
+
+class SchedulePostState(StatesGroup):
+    """
+    🕒 Состояния для отложенной публикации
+    """
+    choosing_datetime = State()  # пользователь вводит дату и время
+    confirming = State()         # подтверждение перед сохранением
