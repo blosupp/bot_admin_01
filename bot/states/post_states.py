@@ -16,3 +16,8 @@ class SchedulePostState(StatesGroup):
     """
     choosing_datetime = State()  # пользователь вводит дату и время
     confirming = State()         # подтверждение перед сохранением
+
+
+class PhotoPostState(StatesGroup):
+    choosing_channel = State()
+    confirming_post = State()

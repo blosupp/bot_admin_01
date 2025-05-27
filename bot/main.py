@@ -13,6 +13,9 @@ from apscheduler.triggers.interval import IntervalTrigger
 from bot.handlers import queue
 
 
+from aiogram.types import CallbackQuery
+from aiogram.fsm.context import FSMContext
+
 from bot.handlers import chat
 import logging
 
@@ -22,7 +25,11 @@ bot = Bot(token=BOT_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
-
+@dp.callback_query()
+async def debug_all(callback: CallbackQuery, state: FSMContext):
+    print("🔥 Callback data:", callback.data)
+    print("🔥 FSM state:", await state.get_state())
+    await callback.answer("DEBUG: кнопка нажата")
 dp.include_router(user.router)
 dp.include_router(prompt.router)
 dp.include_router(generate.router)
@@ -31,6 +38,9 @@ dp.include_router(prompts.router)
 dp.include_router(chat.router)
 dp.include_router(post.router)
 dp.include_router(queue.router)
+
+
+
 
 
 async def on_startup():

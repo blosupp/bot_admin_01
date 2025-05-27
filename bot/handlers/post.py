@@ -14,7 +14,6 @@ class PostState(StatesGroup):
     choosing_channel = State()
     confirming_post = State()
 
-
 # 📌 /post — генерация по промпту
 @router.message(Command("post"))
 async def start_post(message: types.Message, state: FSMContext):

@@ -39,15 +39,18 @@ async def generate_post(message: types.Message, state: FSMContext):
     await get_or_create_user(user_id, username)
 
     async with get_async_session() as session:
-        prompt = await get_active_prompt(session, user_id)
-        if not prompt:
-            await message.answer("❌ У тебя пока нет активного промпта. Введи /prompt, чтобы задать его.")
+        prompt_obj = await get_active_prompt(session, user_id)
+        if not prompt_obj:
+            await message.answer("❌ У тебя пока нет активного промпта. Введи /prompt.")
             return
+
+        prompt_text = prompt_obj.text  # 🧠 вот нужный текст
+
     try:
         response = await client.chat.completions.create(
             model="gpt-4-turbo",
             messages=[
-                {"role": "system", "content": prompt},
+                {"role": "system", "content": prompt_text},
                 {"role": "user", "content": "Сгенерируй пост по описанию."}
             ],
             temperature=0.7,
@@ -59,7 +62,6 @@ async def generate_post(message: types.Message, state: FSMContext):
 
     except Exception as e:
         await message.answer(f"\u274c Ошибка при генерации:\n\n{e}")
-
 
 # 📷 Обработка присланного фото с подписью и генерация текста
 @router.message(F.photo)
