@@ -3,6 +3,7 @@ from database.db import AsyncSessionLocal
 from database.models import User, Prompt, Channel, TempPost
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.models import Message
+from .models import ScheduledPost
 
 # 👤 Создание пользователя (если не существует)
 async def get_or_create_user(user_id: int, username: str):
@@ -195,3 +196,19 @@ async def delete_temp_post(session, post_id: int):
     if post:
         await session.delete(post)
         await session.commit()
+
+async def get_user_scheduled_posts(session: AsyncSession, user_id: int):
+    stmt = select(ScheduledPost).where(
+        ScheduledPost.user_id == user_id,
+        ScheduledPost.sent == False   # 🔥 исправлено!
+    ).order_by(ScheduledPost.scheduled_time)
+    result = await session.execute(stmt)
+    return result.scalars().all()
+
+async def delete_scheduled_post(session: AsyncSession, post_id: int):
+    post = await session.get(ScheduledPost, post_id)
+    if post:
+        await session.delete(post)
+        await session.commit()
+        return True
+    return False
