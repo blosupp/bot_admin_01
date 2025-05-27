@@ -8,6 +8,10 @@ from bot.handlers import user, prompt, generate, channels, post
 from bot.keyboards import generate as kb_generate
 from database.db import engine, Base
 from bot.handlers import prompts
+from scheduler.post_scheduler import scheduler, check_scheduled_posts
+from apscheduler.triggers.interval import IntervalTrigger
+from bot.handlers import queue
+
 
 from bot.handlers import chat
 import logging
@@ -26,12 +30,15 @@ dp.include_router(channels.router)
 dp.include_router(prompts.router)
 dp.include_router(chat.router)
 dp.include_router(post.router)
-
+dp.include_router(queue.router)
 
 
 async def on_startup():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+        scheduler.add_job(check_scheduled_posts, IntervalTrigger(seconds=60))
+        scheduler.start()
 
 async def main():
     print("Бот запускается...")
