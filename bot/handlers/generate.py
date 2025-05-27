@@ -8,6 +8,11 @@ from bot.states.post_states import PostState, EditPhotoPost
 from bot.services.openai_service import generate_text
 from bot.keyboards.generate import generate_action_keyboard
 from bot.config import OPENAI_API_KEY
+from bot.states.post_states import SchedulePostState
+from datetime import datetime
+from database.models import ScheduledPost
+
+
 
 from database.crud import (
     get_or_create_user,
@@ -33,8 +38,11 @@ async def generate_post(message: types.Message, state: FSMContext):
     username = message.from_user.username or "unknown"
     await get_or_create_user(user_id, username)
 
-    prompt = await get_active_prompt(user_id)
-
+    async with get_async_session() as session:
+        prompt = await get_active_prompt(session, user_id)
+        if not prompt:
+            await message.answer("❌ У тебя пока нет активного промпта. Введи /prompt, чтобы задать его.")
+            return
     try:
         response = await client.chat.completions.create(
             model="gpt-4-turbo",
@@ -70,11 +78,11 @@ async def handle_photo_with_caption(message: Message):
         temp_id = await save_temp_post(session, message.from_user.id, file_id, generated_text, caption)
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="\u2705 Опубликовать", callback_data=f"publish_temp:{temp_id}")],
-        [InlineKeyboardButton(text="\u270f Редактировать", callback_data=f"edit_temp:{temp_id}")],
-        [InlineKeyboardButton(text="\u267b Сгенерировать заново", callback_data=f"regen_temp:{temp_id}")],
-        [InlineKeyboardButton(text="\u274c Отменить", callback_data=f"cancel_temp:{temp_id}")],
-        [InlineKeyboardButton(text="\U0001f5d1 Удалить", callback_data=f"delete_temp:{temp_id}")]
+        [InlineKeyboardButton(text="✅ Опубликовать", callback_data=f"publish_temp:{temp_id}")],
+        [InlineKeyboardButton(text="✏ Редактировать", callback_data=f"edit_temp:{temp_id}")],
+        [InlineKeyboardButton(text="♻ Сгенерировать заново", callback_data=f"regen_temp:{temp_id}")],
+        [InlineKeyboardButton(text="⏰ Отложить", callback_data=f"schedule_temp:{temp_id}")],
+        [InlineKeyboardButton(text="🗑 Удалить", callback_data=f"delete_temp:{temp_id}")]
     ])
 
     await message.answer_photo(photo=file_id, caption=safe_caption, reply_markup=kb)
@@ -205,4 +213,72 @@ async def publish_post_to_channel(callback: CallbackQuery, state: FSMContext, bo
     except Exception as e:
         await callback.message.answer(f"\u274c Ошибка:\n<code>{e}</code>", parse_mode="HTML")
 
+    await state.clear()
+
+@router.callback_query(F.data.startswith("schedule_temp:"))
+async def ask_for_datetime(callback: CallbackQuery, state: FSMContext):
+    """
+    ⏰ Хэндлер по нажатию на кнопку «Отложить»
+    """
+    temp_id = int(callback.data.split(":")[1])
+
+    await state.update_data(temp_post_id=temp_id)
+    await state.set_state(SchedulePostState.choosing_datetime)
+
+    await callback.message.answer(
+        "📅 Введи дату и время публикации в формате:\n\n<code>ДД.ММ.ГГГГ ЧЧ:ММ</code>",
+        parse_mode="HTML"
+    )
+
+@router.message(SchedulePostState.choosing_datetime)
+async def handle_datetime_input(message: Message, state: FSMContext):
+    """
+    ⌚ Принимает дату и время от пользователя в формате 'ДД.ММ.ГГГГ ЧЧ:ММ'
+    """
+    user_input = message.text.strip()
+
+    try:
+        # ⏱ Пробуем распарсить введённую строку в datetime-объект
+        scheduled_dt = datetime.strptime(user_input, "%d.%m.%Y %H:%M")
+
+        # ✅ Сохраняем дату и время во временное состояние FSM
+        await state.update_data(scheduled_time=scheduled_dt)
+
+        await message.answer(
+            f"🗓 Публикация будет запланирована на: <b>{scheduled_dt.strftime('%d.%m.%Y %H:%M')}</b>\n\nНажми «Подтвердить», чтобы сохранить.",
+            parse_mode="HTML"
+        )
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✅ Подтвердить", callback_data="confirm_schedule")],
+            [InlineKeyboardButton(text="❌ Отмена", callback_data="cancel_post")]
+        ])
+        await message.answer("Подтверди публикацию или отмени:", reply_markup=keyboard)
+        # ⏭ Переход к следующему состоянию
+        await state.set_state(SchedulePostState.confirming)
+
+    except ValueError:
+        await message.answer("❌ Неверный формат. Введи дату и время так:\n\n<code>ДД.ММ.ГГГГ ЧЧ:ММ</code>", parse_mode="HTML")
+
+
+@router.callback_query(SchedulePostState.confirming, F.data == "confirm_schedule")
+async def confirm_scheduled_post(callback: CallbackQuery, state: FSMContext):
+    """
+    ✅ Сохраняет пост в таблицу scheduled_posts
+    """
+    await callback.answer()
+
+    data = await state.get_data()
+
+    async with get_async_session() as session:
+        scheduled = ScheduledPost(
+            user_id=callback.from_user.id,
+            channel_id=data["channel_id"],
+            caption=data["post_text"],
+            file_id=data["file_id"],
+            scheduled_time=data["scheduled_time"]
+        )
+        session.add(scheduled)
+        await session.commit()
+
+    await callback.message.answer("✅ Пост отложен! Он будет опубликован в указанное время.")
     await state.clear()
