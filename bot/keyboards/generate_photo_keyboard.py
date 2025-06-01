@@ -8,6 +8,7 @@ def generate_photo_action_keyboard(temp_id: int) -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="✅ Подтвердить", callback_data="confirm_photo_publish")
         ],
         [
+            InlineKeyboardButton(text="⏰ Отложить", callback_data=f"schedule_temp:{temp_id}"),
             InlineKeyboardButton(text="❌ Отмена", callback_data="cancel_post")
         ]
     ])

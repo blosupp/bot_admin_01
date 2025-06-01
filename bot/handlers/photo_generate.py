@@ -164,7 +164,28 @@ async def cb_schedule_temp(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     temp_id = int(callback.data.split(":")[1])
     await state.update_data(temp_post_id=temp_id)
-    await state.set_state(SchedulePostState.choosing_datetime)
+
+    channels = await get_user_channels(callback.from_user.id)
+
+    if len(channels) == 1:
+        await state.update_data(channel_id=channels[0].channel_id)
+        await state.set_state(SchedulePostState.choosing_datetime)
+        await callback.message.answer(
+            "📅 Введите дату и время в формате ДД.MM.ГГГГ ЧЧ:ММ (МСК):",
+            parse_mode="HTML"
+        )
+    else:
+        keyboard = generate_photo_publish_keyboard([
+            (ch.channel_id, ch.title) for ch in channels
+        ])
+        await callback.message.answer(
+            "Выберите канал для отложенной публикации:",
+            reply_markup=keyboard
+        )
+        await state.set_state(SchedulePostState.choosing_channel)
+
+
+
 
     await callback.message.answer(
         "📅 Введите дату и время в формате <code>ДД.MM.ГГГГ ЧЧ:ММ</code>",
@@ -239,3 +260,37 @@ async def cb_cancel_photo(callback: CallbackQuery, state: FSMContext):
 async def cb_cancel_schedule(callback: CallbackQuery, state: FSMContext):
     await callback.answer("❌ Отложенный пост отменён", show_alert=False)
     await state.clear()
+
+
+@router.callback_query(SchedulePostState.confirming, F.data == "schedule_post")
+async def cb_confirm_schedule(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+    data = await state.get_data()
+
+    async with get_async_session() as session:
+        scheduled = ScheduledPost(
+            user_id=callback.from_user.id,
+            channel_id=data["channel_id"],
+            caption=data["post_text"],
+            file_id=data.get("file_id"),  # None если это текстовый пост
+            scheduled_time=data["scheduled_time"]
+        )
+        session.add(scheduled)
+        await session.commit()
+
+    await callback.message.answer("✅ Пост отложен! Он будет опубликован в указанное время.")
+    await state.clear()
+
+
+
+@router.callback_query(SchedulePostState.choosing_channel, F.data.startswith("photo_channel:"))
+async def choose_channel_for_schedule(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+    channel_id = int(callback.data.split(":")[1])
+    await state.update_data(channel_id=channel_id)
+
+    await callback.message.answer(
+        "📅 Введите дату и время в формате ДД.MM.ГГГГ ЧЧ:ММ (МСК):",
+        parse_mode="HTML"
+    )
+    await state.set_state(SchedulePostState.choosing_datetime)
