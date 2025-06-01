@@ -6,9 +6,11 @@ from bot.config import BOT_TOKEN
 from aiogram import Bot
 from database.models import ScheduledPost
 from database.db import get_async_session
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from database.crud import delete_temp_post
 
-scheduler = AsyncIOScheduler()
+
+scheduler = AsyncIOScheduler(timezone="Europe/Moscow")
 bot = Bot(token=BOT_TOKEN)
 
 async def check_scheduled_posts():
@@ -31,6 +33,7 @@ async def check_scheduled_posts():
 
                 post.sent = True
                 await session.commit()
+
 
             except Exception as e:
                 print(f"❌ Ошибка при публикации отложенного поста: {e}")

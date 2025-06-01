@@ -4,6 +4,9 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
+from apscheduler.triggers.interval import IntervalTrigger
+from scheduler.post_scheduler import scheduler, check_scheduled_posts
+
 from bot.services.openai_service import generate_post_text
 from database.crud import get_user_channels
 
@@ -138,3 +141,22 @@ async def cancel_post(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     await state.clear()
     await callback.message.edit_text("❌ Публикация отменена.")
+
+
+
+@router.startup()
+async def start_scheduler():
+    # проверяем таблицу каждую минуту
+    scheduler.add_job(
+        check_scheduled_posts,
+        trigger=IntervalTrigger(seconds=60),
+        id="scheduled_posts_job",
+        replace_existing=True
+    )
+    scheduler.start()
+    print("⏰ Scheduler started via post router")
+
+@router.shutdown()
+async def stop_scheduler():
+    scheduler.shutdown(wait=False)
+    print("⏰ Scheduler stopped via post router")

@@ -21,3 +21,13 @@ class SchedulePostState(StatesGroup):
 class PhotoPostState(StatesGroup):
     choosing_channel = State()
     confirming_post = State()
+
+class TextPostState(StatesGroup):
+    """Состояния для генерации и подтверждения текстового поста"""
+    waiting_for_prompt = State()
+    confirming = State()
+
+
+class EditTextPost(StatesGroup):
+    """Состояние для ввода финального текста при редактировании"""
+    waiting_for_new_text = State()
