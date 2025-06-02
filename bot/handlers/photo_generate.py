@@ -3,6 +3,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram import Bot
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from bot.states.post_states import PhotoPostState, EditPhotoPost, SchedulePostState
 from bot.services.openai_service import generate_text
@@ -198,17 +199,29 @@ async def cb_schedule_temp(callback: CallbackQuery, state: FSMContext):
 async def handle_datetime_input(message: Message, state: FSMContext):
     user_input = message.text.strip()
     try:
-        sched_dt = datetime.strptime(user_input, "%d.%m.%Y %H:%M")
-        await state.update_data(scheduled_time=sched_dt)
+        # Парсим как МСК
+        dt_local = datetime.strptime(user_input, "%d.%m.%Y %H:%M")
+        dt_local = dt_local.replace(tzinfo=ZoneInfo("Europe/Moscow"))
+        # Конвертируем в UTC
+        dt_utc = dt_local.astimezone(ZoneInfo("UTC"))
 
+        # Сохраняем в UTC
+        await state.update_data(scheduled_time=dt_utc)
+
+        # Показываем пользователю в МСК
         await message.answer(
-            f"🗓 Пост запланирован на <b>{sched_dt.strftime('%d.%m.%Y %H:%M')}</b>.\nНажмите «Подтвердить» или «Отмена».",
+            f"🗓 Пост запланирован на <b>{dt_local.strftime('%d.%m.%Y %H:%M')}</b> (МСК).\n"
+            f"Нажмите «Подтвердить» или «Отмена».",
             parse_mode="HTML",
             reply_markup=generate_photo_schedule_keyboard()
         )
         await state.set_state(SchedulePostState.confirming)
+
     except ValueError:
-        await message.answer("❌ Неверный формат. Попробуйте ещё раз:\n<code>ДД.MM.ГГГГ ЧЧ:ММ</code>", parse_mode="HTML")
+        await message.answer(
+            "❌ Неверный формат. Попробуйте ещё раз:\n<code>ДД.MM.ГГГГ ЧЧ:ММ</code>",
+            parse_mode="HTML"
+        )
 
 
 @router.callback_query(SchedulePostState.confirming, F.data == "confirm_schedule")

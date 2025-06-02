@@ -26,6 +26,9 @@ async def check_scheduled_posts():
 
         for post in posts:
             try:
+                print(f"🕒 Проверка отложки: post_id={post.id}, канал={post.channel_id}, "
+                      f"время_публикации={post.scheduled_time}, сейчас={datetime.utcnow()}, "
+                      f"тип={'фото' if post.file_id else 'текст'}")
                 if post.file_id:
                     await bot.send_photo(chat_id=post.channel_id, photo=post.file_id, caption=post.caption[:1024])
                 else:
