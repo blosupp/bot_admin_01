@@ -25,3 +25,5 @@ Base = declarative_base()
 # 🧱 Sync engine только для init_db
 SYNC_DATABASE_URL = f"sqlite:///{DATABASE_PATH}"  # без aiosqlite
 sync_engine = create_engine(SYNC_DATABASE_URL, echo=False)
+# ✅ Экспорт для crud
+async_session = AsyncSessionLocal
