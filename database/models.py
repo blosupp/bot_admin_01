@@ -70,3 +70,14 @@ class ScheduledPost(Base):
     created_at = Column(DateTime, default=datetime.utcnow)  # когда создан
 
 
+class ActionLog(Base):
+    """
+    📄 Таблица логов действий пользователей
+    """
+    __tablename__ = "action_logs"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(BigInteger, index=True)
+    action_type = Column(String)  # например: 'generate', 'publish', 'delete', 'login'
+    description = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)

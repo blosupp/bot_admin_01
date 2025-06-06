@@ -17,9 +17,12 @@ from bot.handlers.generate_video import router as generate_video_router
 from bot.handlers.generate_photo import router as generate_photo_router
 from bot.handlers.help import router as help_router
 from bot.handlers.post_scheduler_control import router as scheduler_control_router
-
+from bot.handlers import schedule
+from bot.handlers import superadmin
 from aiogram.types import CallbackQuery
 from aiogram.fsm.context import FSMContext
+from bot.middlewares.register_check import RegisterCheckMiddleware
+
 
 from bot.handlers import chat
 import logging
@@ -45,8 +48,9 @@ dp.include_router(prompt.router)
 dp.include_router(channels.router)
 dp.include_router(prompts.router)
 dp.include_router(queue.router)
-
-
+dp.include_router(schedule.router)
+dp.include_router(superadmin.router)
+dp.message.middleware(RegisterCheckMiddleware())
 
 
 

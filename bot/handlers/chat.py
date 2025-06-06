@@ -41,18 +41,17 @@ async def forget_memory(message: Message):
     await message.answer("🧠 История очищена. Начнем с чистого листа!")
 
 
+
 @router.message(Command("chatmode"))
 async def toggle_chatmode(message: Message):
     """
     Команда /chatmode:
-    🔁 Включает или выключает диалоговую память
+    🔁 Переключает память GPT (вкл/выкл)
     """
     user_id = message.from_user.id
 
     async with get_async_session() as session:
         new_mode = await toggle_user_memory(user_id, session)
 
-    if new_mode:
-        await message.answer("🧠 Память включена. GPT будет помнить контекст.")
-    else:
-        await message.answer("💤 Память отключена. GPT будет отвечать без истории.")
+    mode_text = "🧠 Память включена.\nGPT будет помнить контекст." if new_mode else "💤 Память отключена.\nGPT не будет помнить прошлые сообщения."
+    await message.answer(f"{mode_text}\n\nПовторно введите /chatmode для переключения.")

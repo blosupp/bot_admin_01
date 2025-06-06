@@ -6,6 +6,9 @@ from database.models import Message
 from .models import ScheduledPost
 from database.db import async_session
 
+from database.models import ActionLog
+from datetime import datetime
+
 # 👤 Создание пользователя (если не существует)
 async def get_or_create_user(user_id: int, username: str):
     async with AsyncSessionLocal() as session:
@@ -242,3 +245,49 @@ async def create_scheduled_post(user_id: int, channel_id: int, caption: str, fil
         )
         session.add(post)
         await session.commit()
+
+
+async def get_scheduled_posts_by_user(user_id: int):
+    async with async_session() as session:
+        result = await session.execute(
+            select(ScheduledPost)
+            .where(ScheduledPost.user_id == user_id)
+            .order_by(ScheduledPost.scheduled_time)
+        )
+        return result.scalars().all()
+
+
+async def delete_user_messages(user_id: int):
+    async with async_session() as session:
+        await session.execute(delete(Message).where(Message.user_id == user_id))
+        await session.commit()
+
+async def add_log(user_id: int, action_type: str, description: str = ""):
+    """
+    Добавить лог действия в базу данных.
+    :param user_id: ID пользователя
+    :param action_type: Тип действия (например, 'generate', 'publish', 'delete', 'login')
+    :param description: Дополнительная информация
+    """
+    async with async_session() as session:
+        log = ActionLog(
+            user_id=user_id,
+            action_type=action_type,
+            description=description,
+            created_at=datetime.utcnow()
+        )
+        session.add(log)
+        await session.commit()
+
+
+async def get_user_role(user_id: int) -> str:
+    async with async_session() as session:
+        result = await session.execute(select(User.role).where(User.id == user_id))
+        role = result.scalar_one_or_none()
+        return role or "user"
+
+async def is_superadmin(user_id: int) -> bool:
+    return await get_user_role(user_id) == "superadmin"
+
+async def is_admin(user_id: int) -> bool:
+    return await get_user_role(user_id) in ["admin", "superadmin"]
