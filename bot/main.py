@@ -10,11 +10,20 @@ from bot.handlers import prompts
 from scheduler.post_scheduler import scheduler, check_scheduled_posts
 from apscheduler.triggers.interval import IntervalTrigger
 from bot.handlers import queue
-from bot.handlers.text_generate import router as text_router
+
+
+from bot.handlers.generate.generate_text import router as generate_text_router
+from bot.handlers.generate.generate_video import router as generate_video_router
+from bot.handlers.generate.generate_photo import router as generate_photo_router
+
+
+
 from bot.handlers.photo_generate import router as photo_router
 from bot.handlers.post_video import router as video_router
-from bot.handlers.generate_video import router as generate_video_router
-from bot.handlers.generate_photo import router as generate_photo_router
+
+
+
+
 from bot.handlers.help import router as help_router
 from bot.handlers.post_scheduler_control import router as scheduler_control_router
 from bot.handlers import schedule
@@ -39,7 +48,7 @@ dp.include_router(help_router)
 dp.include_router(generate_video_router)
 dp.include_router(generate_photo_router)
 dp.include_router(video_router)
-dp.include_router(text_router)
+dp.include_router(generate_text_router)
 dp.include_router(photo_router)
 dp.include_router(post.router)
 dp.include_router(chat.router)
