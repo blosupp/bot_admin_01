@@ -5,6 +5,8 @@ from bot.states.post_states import SchedulePostState
 from database.crud import get_temp_post, delete_temp_post, create_scheduled_post
 from database.crud import get_scheduled_posts_by_user
 
+from database.crud import add_log
+
 router = Router()
 
 @router.message(SchedulePostState.confirming, F.text.lower() == "подтвердить")
@@ -33,6 +35,11 @@ async def handle_confirm_schedule(message: Message, state: FSMContext):
     )
 
     await delete_temp_post(user_id)
+    await add_log(
+        user_id=user_id,
+        action_type="schedule",
+        description=f"Пост запланирован на {scheduled_time} в канал {channel_id}"
+    )
     await message.answer("✅ Пост запланирован. Временный черновик удалён.")
     await state.clear()
 

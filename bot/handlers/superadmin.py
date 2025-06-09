@@ -20,40 +20,50 @@ router = Router()
 @router.message(Command("logs"))
 async def view_logs(message: types.Message):
     user_id = message.from_user.id
+    args = message.text.strip().split()
 
     if not await is_superadmin(user_id):
         await message.answer("🚫 Доступ запрещён. Только для суперадмина.")
         return
 
+    # Опциональный фильтр: /logs [тип]
+    log_type = args[1] if len(args) > 1 else None
+
     async with async_session() as session:
-        result = await session.execute(
-            select(ActionLog).order_by(desc(ActionLog.created_at)).limit(20)
-        )
+        query = select(ActionLog).order_by(desc(ActionLog.created_at)).limit(30)
+
+        if log_type:
+            query = query.where(ActionLog.action_type == log_type)
+
+        result = await session.execute(query)
         logs = result.scalars().all()
 
-    if not logs:
-        await message.answer("📭 Логи пусты.")
-        return
+        if not logs:
+            await message.answer("📭 Логи пусты.")
+            return
 
-    log_text = "<b>📋 Последние действия:</b>\n\n"
+        text = f"<b>📋 Последние действия{' (' + log_type + ')' if log_type else ''}:</b>\n\n"
 
-    async with async_session() as session:
         for log in logs:
-            # Получаем username по user_id
-            user_result = await session.execute(
-                select(User).where(User.id == log.user_id)
-            )
-            user = user_result.scalar_one_or_none()
-            username = f"@{user.username}" if user and user.username else "(ник отсутствует)"
+            if not log or not log.user_id:
+                continue
 
-            log_text += (
+            try:
+                user_result = await session.execute(
+                    select(User).where(User.id == log.user_id)
+                )
+                user = user_result.scalar_one_or_none()
+                username = f"@{user.username}" if user and user.username else "(ник неизвестен)"
+            except Exception:
+                username = "(ошибка получения ника)"
+
+            text += (
                 f"🕒 {log.created_at.strftime('%d.%m.%Y %H:%M')} | "
                 f"{username} <code>{log.user_id}</code>\n"
                 f"<b>{log.action_type}</b>: {log.description}\n\n"
             )
 
-    await message.answer(log_text, parse_mode="HTML")
-
+    await message.answer(text, parse_mode="HTML")
 
 
 @router.message(Command("add_admin"))
@@ -208,3 +218,15 @@ async def list_admins(message: types.Message):
         text += f"🔧 {username} — <code>{admin.id}</code>\n"
 
     await message.answer(text, parse_mode="HTML")
+
+@router.message(Command("clear_logs"))
+async def clear_logs(message: types.Message):
+    if not await is_superadmin(message.from_user.id):
+        await message.answer("🚫 Недостаточно прав.")
+        return
+
+    async with async_session() as session:
+        await session.execute(delete(ActionLog))
+        await session.commit()
+
+    await message.answer("🧹 Все логи успешно удалены.")

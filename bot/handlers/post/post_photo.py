@@ -22,6 +22,8 @@ from database.crud import (
 from database.db import get_async_session
 from database.models import ScheduledPost
 
+from database.crud import add_log
+
 router = Router()
 
 
@@ -51,6 +53,11 @@ async def handle_photo_with_caption(message: Message, state: FSMContext):
     kb = generate_photo_action_keyboard(temp_id)
     await message.answer_photo(photo=file_id, caption=safe_caption, reply_markup=kb)
     await state.set_state(PhotoPostState.confirming_post)
+    await add_log(
+        user_id=message.from_user.id,
+        action_type="generate_photo",
+        description="Генерация текста по загруженному фото"
+    )
 
 
 @router.callback_query(PhotoPostState.confirming_post, F.data.startswith("regen_temp:"))
@@ -158,6 +165,11 @@ async def cb_photo_choose_channel(callback: CallbackQuery, state: FSMContext, bo
 
     await callback.message.answer("✅ Фото-пост опубликован!")
     await state.clear()
+    await add_log(
+        user_id=callback.from_user.id,
+        action_type="publish",
+        description=f"Пост опубликован в канал {channel_id}"
+    )
 
 
 @router.callback_query(PhotoPostState.confirming_post, F.data.startswith("schedule_temp:"))
@@ -241,9 +253,16 @@ async def cb_confirm_schedule(callback: CallbackQuery, state: FSMContext):
         await session.commit()
         # удаляем временный пост
         await delete_temp_post(session, data["temp_post_id"])
+        await add_log(
+            user_id=callback.from_user.id,
+            action_type="schedule",
+            description=f"Фото-пост отложен на {data['scheduled_time']} в канал {data['channel_id']}"
+        )
 
     await callback.message.answer("✅ Фото-пост отложен!")
+
     await state.clear()
+
 
 
 @router.callback_query(PhotoPostState.confirming_post, F.data == "cancel_post")

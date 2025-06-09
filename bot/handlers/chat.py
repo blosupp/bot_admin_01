@@ -3,7 +3,7 @@ from bot.services.openai_service import generate_text
 from bot.services.openai_service import generate_text_with_memory
 from aiogram.filters import Command
 from aiogram.types import Message
-
+from database.crud import add_log
 
 from database.crud import add_message
 from database.crud import delete_user_messages
@@ -20,6 +20,11 @@ async def gpt_dialogue(message: types.Message):
 
     reply = await generate_text_with_memory(user_id, user_input)
     await message.answer(reply)
+    await add_log(
+        user_id=message.from_user.id,
+        action_type="chat",
+        description=f"USER: {message.text[:100]}\nGPT: {reply[:100]}"
+    )
 
     ## 🔧 временный тест
     #async with get_async_session() as session:

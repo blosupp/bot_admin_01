@@ -10,6 +10,8 @@ from scheduler.post_scheduler import scheduler, check_scheduled_posts
 from bot.services.openai_service import generate_post_text
 from database.crud import get_user_channels
 
+from database.crud import add_log
+
 router = Router()
 
 
@@ -58,6 +60,11 @@ async def start_post(message: types.Message, state: FSMContext):
         reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard)
     )
     await state.set_state(PostState.choosing_channel)
+    await add_log(
+        user_id=user_id,
+        action_type="generate",
+        description=f"Генерация поста по команде /post"
+    )
 
 
 # 📍 Пользователь выбрал канал — генерируем текст
@@ -125,8 +132,19 @@ async def publish_post(callback: types.CallbackQuery, state: FSMContext, bot: Bo
 
     try:
         await bot.send_message(chat_id=channel_id, text=post_text)
+        await add_log(
+            user_id=callback.from_user.id,
+            action_type="publish",
+            description=f"Пост опубликован в канал {channel_id} (текст)"
+        )
+
         await callback.message.edit_text("✅ Пост опубликован!")
     except Exception as e:
+        await add_log(
+            user_id=callback.from_user.id,
+            action_type="error",
+            description=f"Ошибка при публикации в канал {channel_id}: {e}"
+        )
         await callback.message.edit_text(
             f"❌ Ошибка при публикации:\n<code>{e}</code>",
             parse_mode="HTML"

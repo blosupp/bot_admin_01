@@ -1,10 +1,11 @@
-from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
 from bot.states.post_states import TextPostState, EditTextPost  # создадим эти стейты
 from bot.services.openai_service import generate_text
 from bot.keyboards.generate_text_keyboard import generate_text_action_keyboard
 from aiogram import Router, types, F
 from aiogram.filters import Command
+from database.crud import add_log
+
 router = Router()
 
 # Шаг 1: команда для старта генерации текста
@@ -24,6 +25,8 @@ async def handle_text_prompt(message: types.Message, state: FSMContext):
     kb = generate_text_action_keyboard()
     await message.answer(f"📝 Сгенерированный текст:\n\n{generated}", reply_markup=kb)
     await state.set_state(TextPostState.confirming)
+
+
 
 # Шаг 3: обработчики inline-кнопок ("Ещё", "Редактировать", "Подтвердить")
 # — regen

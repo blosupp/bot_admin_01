@@ -41,7 +41,6 @@ storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
 
-dp.include_router(scheduler_control_router)
 dp.include_router(help_router)
 dp.include_router(generate_video_router)
 dp.include_router(generate_photo_router)
