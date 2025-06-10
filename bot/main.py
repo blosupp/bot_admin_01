@@ -29,6 +29,8 @@ from bot.handlers import superadmin
 from aiogram.types import CallbackQuery
 from aiogram.fsm.context import FSMContext
 from bot.middlewares.register_check import RegisterCheckMiddleware
+from bot.handlers.adminpanel import router as adminpanel_router
+from bot.handlers.admin_callbacks import router as admin_callback_router
 
 
 from bot.handlers import chat
@@ -58,6 +60,8 @@ dp.include_router(queue.router)
 dp.include_router(schedule.router)
 dp.include_router(superadmin.router)
 dp.message.middleware(RegisterCheckMiddleware())
+dp.include_router(adminpanel_router)
+dp.include_router(admin_callback_router)
 
 
 

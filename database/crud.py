@@ -3,8 +3,14 @@ from database.db import AsyncSessionLocal
 from database.models import User, Prompt, Channel, TempPost
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.models import Message
-from .models import ScheduledPost
+from database.models import ScheduledPost
 from database.db import async_session
+from database.db import get_async_session
+from sqlalchemy.orm import joinedload
+
+
+from sqlalchemy import select, desc
+
 
 from database.models import ActionLog
 from datetime import datetime
@@ -291,3 +297,38 @@ async def is_superadmin(user_id: int) -> bool:
 
 async def is_admin(user_id: int) -> bool:
     return await get_user_role(user_id) in ["admin", "superadmin"]
+
+async def get_user_by_id(user_id: int):
+    async with get_async_session() as session:
+        result = await session.execute(select(User).where(User.id == user_id))
+        return result.scalar_one_or_none()
+
+async def get_last_logs(limit: int = 10):
+    async with get_async_session() as session:
+        result = await session.execute(
+            select(ActionLog).options(joinedload(ActionLog.user)).order_by(desc(ActionLog.created_at)).limit(limit)
+        )
+        return result.scalars().all()
+
+async def clear_logs():
+    async with get_async_session() as session:
+        await session.execute(delete(ActionLog))
+        await session.commit()
+
+async def get_all_users():
+    async with get_async_session() as session:
+        result = await session.execute(select(User))
+        return result.scalars().all()
+
+async def add_log(user_id: int, action_type: str, description: str):
+    """
+    Добавляет запись в таблицу логов.
+    """
+    async with get_async_session() as session:
+        log = ActionLog(
+            user_id=user_id,
+            action_type=action_type,
+            description=description
+        )
+        session.add(log)
+        await session.commit()

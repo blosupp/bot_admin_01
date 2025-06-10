@@ -70,14 +70,16 @@ class ScheduledPost(Base):
     created_at = Column(DateTime, default=datetime.utcnow)  # когда создан
 
 
+
+
 class ActionLog(Base):
-    """
-    📄 Таблица логов действий пользователей
-    """
     __tablename__ = "action_logs"
+    __table_args__ = {"extend_existing": True}
 
     id = Column(Integer, primary_key=True)
-    user_id = Column(BigInteger, index=True)
-    action_type = Column(String)  # например: 'generate', 'publish', 'delete', 'login'
+    user_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), index=True)  # ✅ тут!
+    action_type = Column(String)
     description = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", backref="logs", lazy="joined")
