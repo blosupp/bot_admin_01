@@ -7,6 +7,7 @@ from database.models import ScheduledPost
 from database.db import async_session
 from database.db import get_async_session
 from sqlalchemy.orm import joinedload
+from aiogram import types
 
 
 from sqlalchemy import select, desc
@@ -16,14 +17,19 @@ from database.models import ActionLog
 from datetime import datetime
 
 # 👤 Создание пользователя (если не существует)
-async def get_or_create_user(user_id: int, username: str):
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(select(User).where(User.id == user_id))
-        user = result.scalars().first()
-        if user:
-            return user
-        user = User(id=user_id, username=username)
-        session.add(user)
+async def get_or_create_user(tg_user: types.User):
+    async with get_async_session() as session:
+        user = await session.get(User, tg_user.id)
+        if not user:
+            user = User(
+                id=tg_user.id,
+                username=tg_user.username,
+                role="client"
+            )
+            session.add(user)
+        else:
+            # обновим username, если он изменился
+            user.username = tg_user.username
         await session.commit()
         return user
 
@@ -331,4 +337,16 @@ async def add_log(user_id: int, action_type: str, description: str):
             description=description
         )
         session.add(log)
+        await session.commit()
+
+async def set_user_role(user_id: int, role: str):
+    async with get_async_session() as session:
+        await session.execute(
+            update(User).where(User.id == user_id).values(role=role)
+        )
+        await session.commit()
+
+async def delete_user(user_id: int):
+    async with get_async_session() as session:
+        await session.execute(delete(User).where(User.id == user_id))
         await session.commit()

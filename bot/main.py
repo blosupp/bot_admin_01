@@ -12,6 +12,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from bot.handlers import queue
 
 
+
 from bot.handlers.generate.generate_text import router as generate_text_router
 from bot.handlers.generate.generate_video import router as generate_video_router
 from bot.handlers.generate.generate_photo import router as generate_photo_router
@@ -31,6 +32,7 @@ from aiogram.fsm.context import FSMContext
 from bot.middlewares.register_check import RegisterCheckMiddleware
 from bot.handlers.adminpanel import router as adminpanel_router
 from bot.handlers.admin_callbacks import router as admin_callback_router
+
 
 
 from bot.handlers import chat
@@ -62,7 +64,6 @@ dp.include_router(superadmin.router)
 dp.message.middleware(RegisterCheckMiddleware())
 dp.include_router(adminpanel_router)
 dp.include_router(admin_callback_router)
-
 
 
 

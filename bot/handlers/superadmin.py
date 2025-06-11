@@ -9,6 +9,8 @@ from database.crud import add_log
 from database.models import User
 from database.crud import get_user_role
 from sqlalchemy import delete
+from database.models import ScheduledPost
+
 
 from database.models import User
 
@@ -130,7 +132,7 @@ async def add_user(message: types.Message):
         if result.scalar_one_or_none():
             await message.answer("⚠️ Пользователь уже существует.")
             return
-        user = User(id=new_user_id, role="user")
+        user = User(id=new_user_id, role="client")
         session.add(user)
         await session.commit()
 
@@ -230,3 +232,51 @@ async def clear_logs(message: types.Message):
         await session.commit()
 
     await message.answer("🧹 Все логи успешно удалены.")
+
+
+
+@router.message(Command("stats"))
+async def show_stats(message: types.Message):
+    user_id = message.from_user.id
+
+    if not await is_admin(user_id):
+        await message.answer("🚫 Доступ только для админов.")
+        return
+
+    is_super = await is_superadmin(user_id)
+
+    async with async_session() as session:
+        result = await session.execute(select(User))
+        users = result.scalars().all()
+
+        post_result = await session.execute(select(ScheduledPost))
+        posts = post_result.scalars().all()
+
+        post_map = {}
+        for post in posts:
+            post_map[post.user_id] = post_map.get(post.user_id, 0) + 1
+
+        log_result = await session.execute(
+            select(ActionLog).order_by(desc(ActionLog.created_at)).limit(1)
+        )
+        last_log = log_result.scalar_one_or_none()
+
+    text = "<b>📊 Статистика по пользователям:</b>\n\n"
+
+    for user in users:
+        if not is_super and user.role == "superadmin":
+            continue
+
+        username = f"@{user.username}" if user.username else f"ID: {user.id}"
+        post_count = post_map.get(user.id, 0)
+        text += f"{username} — <i>{user.role}</i> — 🧾 {post_count} постов\n"
+
+    if last_log:
+        name = f"@{last_log.user.username}" if last_log.user and last_log.user.username else f"ID: {last_log.user_id}"
+        text += (
+            f"\n🕒 Последнее действие:\n"
+            f"{name} — <i>{last_log.action_type}</i>\n"
+            f"{last_log.description}"
+        )
+
+    await message.answer(text, parse_mode="HTML")
