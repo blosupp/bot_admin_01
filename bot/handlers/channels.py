@@ -47,7 +47,7 @@ async def add_channel_entry(message: types.Message, state: FSMContext, bot: Bot)
 
 
 # Обработка пересланного сообщения
-@router.message(ChannelState.waiting_for_forward)
+@router.message(F.forward_from_chat, ChannelState.waiting_for_forward)
 async def receive_forwarded_channel(message: types.Message, state: FSMContext, bot: Bot):
     user_id = message.from_user.id
     channel = message.forward_from_chat
