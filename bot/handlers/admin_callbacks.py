@@ -4,6 +4,7 @@ from database.crud import get_last_logs, clear_logs, get_all_users
 from database.crud import add_log
 from database.crud import set_user_role, delete_user
 from bot.keyboards.user_manage import get_user_manage_buttons
+from bot.keyboards.general_manage_keyboard import get_general_manage_keyboard
 
 from aiogram.types import InlineKeyboardMarkup
 
@@ -40,17 +41,11 @@ async def handle_user_management(callback: CallbackQuery):
         return
 
     text = "👥 <b>Список пользователей:</b>\n\n"
-    keyboard = []
-
     for user in users:
         name = f"@{user.username}" if user.username else f"ID: {user.id}"
         text += f"• {name} — <i>{user.role}</i>\n"
 
-        markup = get_user_manage_buttons(viewer_id=callback.from_user.id, target_id=user.id, target_role=user.role)
-        if markup:
-            keyboard.extend(markup.inline_keyboard)
-
-    markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
+    markup = get_general_manage_keyboard()
     await callback.message.edit_text(text, reply_markup=markup, parse_mode="HTML")
 
 

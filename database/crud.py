@@ -28,8 +28,7 @@ async def get_or_create_user(tg_user: types.User):
             )
             session.add(user)
         else:
-            # обновим username, если он изменился
-            user.username = tg_user.username
+            user.username = tg_user.username  # ⬅ важно: обновляем ник при каждом запросе
         await session.commit()
         return user
 
