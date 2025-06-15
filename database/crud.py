@@ -232,3 +232,9 @@ async def delete_user(user_id: int):
     async with get_async_session() as session:
         await session.execute(delete(User).where(User.id == user_id))
         await session.commit()
+
+async def get_active_prompt(session: AsyncSession, user_id: int) -> Prompt | None:
+    result = await session.execute(
+        select(Prompt).where(Prompt.user_id == user_id, Prompt.is_active == True)
+    )
+    return result.scalar_one_or_none()

@@ -3,6 +3,10 @@ from aiogram.types import CallbackQuery
 from database.crud import get_last_logs, clear_logs, get_all_users
 from database.crud import add_log
 from database.crud import set_user_role, delete_user
+import tempfile
+from aiogram.types import FSInputFile
+
+
 
 from bot.keyboards.general_manage_keyboard import get_general_manage_keyboard
 
@@ -72,3 +76,26 @@ async def handle_delete_user(callback: CallbackQuery):
     await add_log(callback.from_user.id, "adminpanel", f"удалил пользователя {user_id}")
     await callback.answer("❌ Удалён")
     await handle_user_management(callback)
+
+
+@router.callback_query(F.data == "export_logs")
+async def handle_export_logs(callback: CallbackQuery):
+    logs = await get_last_logs(limit=100)
+
+    if not logs:
+        await callback.message.answer("📭 Логи пусты.")
+        return
+
+    content = "Последние логи:\n\n"
+    for log in logs:
+        username = f"@{log.user.username}" if log.user and log.user.username else f"ID: {log.user_id}"
+        time = log.created_at.strftime("%Y-%m-%d %H:%M")
+        content += f"[{time}] {username} — {log.action_type}: {log.description}\n"
+
+    with tempfile.NamedTemporaryFile("w+", encoding="utf-8", delete=False, suffix=".txt") as f:
+        f.write(content)
+        f.flush()
+        file = FSInputFile(f.name, filename="logs.txt")
+        await callback.message.answer_document(file)
+
+    await callback.answer("📥 Логи выгружены")

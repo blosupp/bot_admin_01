@@ -10,6 +10,7 @@ from database.models import User
 from database.crud import get_user_role
 from sqlalchemy import delete
 from database.models import ScheduledPost
+from aiogram.types import Message
 
 
 from database.models import User
@@ -280,3 +281,58 @@ async def show_stats(message: types.Message):
         )
 
     await message.answer(text, parse_mode="HTML")
+
+
+@router.message(Command("set_balance"))
+async def set_balance(message: Message):
+    if not await is_superadmin(message.from_user.id):
+        return await message.answer("🚫 Только для суперадмина")
+
+    args = message.text.split()
+    if len(args) != 3:
+        return await message.answer("⚠️ Использование: /set_balance @username 100")
+
+    username = args[1].lstrip("@")
+    try:
+        amount = int(args[2])
+    except ValueError:
+        return await message.answer("❌ Неверное значение баланса")
+
+    async with async_session() as session:
+        result = await session.execute(select(User).where(User.username == username))
+        user = result.scalar_one_or_none()
+        if not user:
+            return await message.answer("❌ Пользователь не найден")
+
+        await session.execute(update(User).where(User.id == user.id).values(balance=amount))
+        await session.commit()
+        await message.answer(f"✅ Баланс пользователя @{username} установлен: {amount}")
+
+
+
+
+@router.message(Command("add_balance"))
+async def add_balance(message: Message):
+    if not await is_superadmin(message.from_user.id):
+        return await message.answer("🚫 Только для суперадмина")
+
+    args = message.text.split()
+    if len(args) != 3:
+        return await message.answer("⚠️ Использование: /add_balance @username 10")
+
+    username = args[1].lstrip("@")
+    try:
+        amount = int(args[2])
+    except ValueError:
+        return await message.answer("❌ Неверное значение")
+
+    async with async_session() as session:
+        result = await session.execute(select(User).where(User.username == username))
+        user = result.scalar_one_or_none()
+        if not user:
+            return await message.answer("❌ Пользователь не найден")
+
+        new_balance = user.balance + amount
+        await session.execute(update(User).where(User.id == user.id).values(balance=new_balance))
+        await session.commit()
+        await message.answer(f"💰 Баланс @{username} увеличен до {new_balance}")
